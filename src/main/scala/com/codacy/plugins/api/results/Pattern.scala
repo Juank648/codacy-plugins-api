@@ -107,9 +107,12 @@ object Serializers {
               case "Comprehensibility" => JsSuccess(Category.Comprehensibility)
               case "Duplication"       => JsSuccess(Category.Duplication)
               case "Documentation"     => JsSuccess(Category.Documentation)
+              case _ =>
+                JsError("Category not correct")
             }
-          case _ =>
-            JsError("Category not correct")
+          case _: JsUndefined =>
+            JsError("Category should be a String")
+          
         }
         category.map(Specification(???, ???, _, ???, ???))
     }
