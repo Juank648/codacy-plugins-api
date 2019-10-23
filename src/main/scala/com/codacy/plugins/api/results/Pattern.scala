@@ -28,52 +28,30 @@ object Pattern {
 
   case class Definition(patternId: Pattern.Id, parameters: Option[Set[Parameter.Definition]])
 
-  trait Specification {
-    val patternId: Pattern.Id
-    val level: Result.Level
-    val category: Category
-    val subcategory: Option[Subcategory]
-    val parameters: Option[Set[Parameter.Specification]]
-    val languages: Option[Set[Language]]
-  }
-
-  object Specification {
-    private case class SpecificationImpl(patternId: Pattern.Id,
-                                         level: Result.Level,
-                                         category: Category,
-                                         subcategory: Option[Subcategory],
-                                         parameters: Option[Set[Parameter.Specification]],
-                                         languages: Option[Set[Language]] = None)
-        extends Specification
-
-    def apply(patternId: Pattern.Id,
-              level: Result.Level,
-              category: Category,
-              subcategory: Option[Subcategory],
-              parameters: Option[Set[Parameter.Specification]],
-              languages: Option[Set[Language]] = None): Specification = {
-      val spec = SpecificationImpl(patternId, level, category, subcategory, parameters, languages)
-
-      spec.subcategory match {
-        case Some(sc) =>
-          sc match {
-            case Subcategory.BadDeserialization | Subcategory.BrokenAccess | Subcategory.BrokenAuth |
-                Subcategory.Injection | Subcategory.Misconfiguration | Subcategory.NoLogging |
-                Subcategory.SensitiveData | Subcategory.VulnerableComponent | Subcategory.XSS | Subcategory.XXE
-                if category == Category.Security =>
-              spec
-
-            case _ => throw new Exception("invalid sub category")
-          }
-        case None => spec
-      }
-    }
-  }
+  case class Specification(patternId: Pattern.Id,
+                           level: Result.Level,
+                           category: Category,
+                           parameters: Option[Set[Parameter.Specification]],
+                           languages: Option[Set[Language]] = None)
 
   sealed trait Category
 
   object Category {
-    case object Security extends Category
+    sealed trait SecuritySubcategory
+    object SecuritySubcategory {
+      case object Injection extends SecuritySubcategory
+      case object BrokenAuth extends SecuritySubcategory
+      case object SensitiveData extends SecuritySubcategory
+      case object XXE extends SecuritySubcategory
+      case object BrokenAccess extends SecuritySubcategory
+      case object Misconfiguration extends SecuritySubcategory
+      case object XSS extends SecuritySubcategory
+      case object BadDeserialization extends SecuritySubcategory
+      case object VulnerableComponent extends SecuritySubcategory
+      case object NoLogging extends SecuritySubcategory
+    }
+
+    case class Security(subcategory: Option[SecuritySubcategory]) extends Category
     case object CodeStyle extends Category
     case object ErrorProne extends Category
     case object Performance extends Category
@@ -86,19 +64,53 @@ object Pattern {
     case object Documentation extends Category
   }
 
-  sealed trait Subcategory
-
-  object Subcategory {
-    case object Injection extends Subcategory
-    case object BrokenAuth extends Subcategory
-    case object SensitiveData extends Subcategory
-    case object XXE extends Subcategory
-    case object BrokenAccess extends Subcategory
-    case object Misconfiguration extends Subcategory
-    case object XSS extends Subcategory
-    case object BadDeserialization extends Subcategory
-    case object VulnerableComponent extends Subcategory
-    case object NoLogging extends Subcategory
+  import play.api.libs.json._
+  implicit val specificationFormat = new Reads[Specification] {
+    def reads(json: JsValue): JsResult[Specification] = {
+      val category: JsResult[Category] =
+        (json \ "category") match {
+          case JsDefined(JsString(value)) =>
+            value match {
+              case "Security" =>
+                val subcategory = json \ "subcategory"
+                val eitherCategory: Option[JsResult[Category.SecuritySubcategory]] = subcategory.toOption.map {
+                  case JsString(value) =>
+                    value match {
+                      case "Injection"           => JsSuccess(Category.SecuritySubcategory.Injection)
+                      case "BrokenAuth"          => JsSuccess(Category.SecuritySubcategory.BrokenAuth)
+                      case "SensitiveData"       => JsSuccess(Category.SecuritySubcategory.SensitiveData)
+                      case "XXE"                 => JsSuccess(Category.SecuritySubcategory.XXE)
+                      case "BrokenAccess"        => JsSuccess(Category.SecuritySubcategory.BrokenAccess)
+                      case "Misconfiguration"    => JsSuccess(Category.SecuritySubcategory.Misconfiguration)
+                      case "XSS"                 => JsSuccess(Category.SecuritySubcategory.XSS)
+                      case "BadDeserialization"  => JsSuccess(Category.SecuritySubcategory.BadDeserialization)
+                      case "VulnerableComponent" => JsSuccess(Category.SecuritySubcategory.VulnerableComponent)
+                      case "NoLogging"           => JsSuccess(Category.SecuritySubcategory.NoLogging)
+                      case _                     => JsError("Wrong subcategory")
+                    }
+                  case _ => JsError("Subcategory should be a string")
+                }
+                val res: JsResult[Option[Category.SecuritySubcategory]] = eitherCategory match {
+                  case None                    => JsSuccess(None)
+                  case Some(JsSuccess(sub, _)) => JsSuccess(Some(sub))
+                  case Some(JsError(err))      => JsError(err)
+                }
+                res.map(Category.Security.apply)
+              case "CodeStyle"         => JsSuccess(Category.CodeStyle)
+              case "ErrorProne"        => JsSuccess(Category.ErrorProne)
+              case "Performance"       => JsSuccess(Category.Performance)
+              case "Compatibility"     => JsSuccess(Category.Compatibility)
+              case "UnusedCode"        => JsSuccess(Category.UnusedCode)
+              case "Complexity"        => JsSuccess(Category.Complexity)
+              case "BestPractice"      => JsSuccess(Category.BestPractice)
+              case "Comprehensibility" => JsSuccess(Category.Comprehensibility)
+              case "Duplication"       => JsSuccess(Category.Duplication)
+              case "Documentation"     => JsSuccess(Category.Documentation)
+            }
+          case _ =>
+            JsError("Category not correct")
+        }
+        category.map(Specification(???, ???, _, ???, ???))
+    }
   }
-
 }

@@ -9,7 +9,7 @@ scalaVersion := scala212
 
 crossScalaVersions := Seq(scala211, scala212, scala213)
 
-libraryDependencies ++= Seq("org.specs2" %% "specs2-core" % "4.7.1" % Test)
+libraryDependencies ++= Seq("com.typesafe.play" %% "play-json" % "2.7.4","org.specs2" %% "specs2-core" % "4.7.1" % Test)
 
 unmanagedSourceDirectories in Compile += {
   val sourceDir = (sourceDirectory in Compile).value
